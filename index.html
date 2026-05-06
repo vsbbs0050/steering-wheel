@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>方向盤皮革計算器 v5</title>
+    <title>方向盤皮革計算器 v6</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f8f9fa; --danger: #e74c3c; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--primary); }
@@ -28,7 +28,7 @@
         <h2>設定與單位</h2>
         <div class="input-row">
             <div class="input-group" style="flex: 1.5;"><label>車型</label><input type="text" id="carModel"></div>
-            <div class="input-group"><label>縮率%</label><input type="number" id="stretchRate" value="8.0" step="0.1"></div>
+            <div class="input-group"><label>縮率%</label><input type="number" id="stretchRate" value="11.0" step="0.1"></div>
             <div class="input-group">
                 <label>單位</label>
                 <select id="unitSelect">
@@ -55,7 +55,7 @@
     </div>
 
     <div class="card">
-        <h2>歷史紀錄</h2>
+        <h2>歷史紀錄 (雙倍縫份版)</h2>
         <div id="logList"></div>
     </div>
 
@@ -79,6 +79,9 @@
         const rate = parseFloat(document.getElementById('stretchRate').value)/100;
         const car = document.getElementById('carModel').value || "未命名";
         
+        // 雙倍縫份：公分=1.8 (0.9*2), 台寸模式=6分 (3分*2)
+        const seam = (unit === 'fen') ? 6 : 1.8;
+        
         const rawVals = [
             document.getElementById('topW').value, 
             document.getElementById('sideW').value, 
@@ -94,12 +97,11 @@
             if (!v || v <= 0) return "--";
             let val = parseFloat(v);
             if (unit === 'fen') {
-                // 台寸模式（全部以「分」計算）
-                // 公式：(輸入的分 * 縮率) + 3分縫份
-                return (val * (1 - rate) + 3).toFixed(1); 
+                // 公式：(輸入的分 * (1-縮率)) + 6分縫份
+                return (val * (1 - rate) + seam).toFixed(1); 
             } else {
-                // 公分模式
-                return (val * (1 - rate) + 0.9).toFixed(2);
+                // 公式：(輸入的公分 * (1-縮率)) + 1.8cm縫份
+                return (val * (1 - rate) + seam).toFixed(2);
             }
         });
 
@@ -117,22 +119,22 @@
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        let logs = JSON.parse(localStorage.getItem('wheelLogsV5') || '[]');
+        let logs = JSON.parse(localStorage.getItem('wheelLogsV6') || '[]');
         logs.unshift(log);
-        localStorage.setItem('wheelLogsV5', JSON.stringify(logs.slice(0,20)));
+        localStorage.setItem('wheelLogsV6', JSON.stringify(logs.slice(0,20)));
         render();
     }
 
     function del(id){
         if(confirm('確定刪除？')){
-            let logs = JSON.parse(localStorage.getItem('wheelLogsV5')).filter(l => l.id !== id);
-            localStorage.setItem('wheelLogsV5', JSON.stringify(logs));
+            let logs = JSON.parse(localStorage.getItem('wheelLogsV6')).filter(l => l.id !== id);
+            localStorage.setItem('wheelLogsV6', JSON.stringify(logs));
             render();
         }
     }
 
     function render(){
-        const logs = JSON.parse(localStorage.getItem('wheelLogsV5') || '[]');
+        const logs = JSON.parse(localStorage.getItem('wheelLogsV6') || '[]');
         const list = document.getElementById('logList');
         if(logs.length === 0) {
             list.innerHTML = '<p style="text-align:center;color:#ccc">尚無紀錄</p>';
