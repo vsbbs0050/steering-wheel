@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>方向盤皮革計算器 v4</title>
+    <title>方向盤皮革計算器 v5</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f8f9fa; --danger: #e74c3c; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--primary); }
@@ -32,8 +32,8 @@
             <div class="input-group">
                 <label>單位</label>
                 <select id="unitSelect">
-                    <option value="tsun">台寸 (輸入分)</option>
-                    <option value="cm">公分 (cm)</option>
+                    <option value="fen">台寸模式 (分)</option>
+                    <option value="cm">公分模式 (cm)</option>
                 </select>
             </div>
         </div>
@@ -48,9 +48,9 @@
         </div>
         <button onclick="calculateAll()">一鍵計算並儲存</button>
         <div class="result-container">
-            <div class="result-box"><div class="res-label">上側 (台寸)</div><div class="res-val" id="rT">--</div></div>
-            <div class="result-box"><div class="res-label">左右 (台寸)</div><div class="res-val" id="rS">--</div></div>
-            <div class="result-box"><div class="res-label">下側 (台寸)</div><div class="res-val" id="rB">--</div></div>
+            <div class="result-box"><div class="res-label">上側裁切 (分)</div><div class="res-val" id="rT">--</div></div>
+            <div class="result-box"><div class="res-label">左右裁切 (分)</div><div class="res-val" id="rS">--</div></div>
+            <div class="result-box"><div class="res-label">下側裁切 (分)</div><div class="res-val" id="rB">--</div></div>
         </div>
     </div>
 
@@ -64,14 +64,13 @@
     const inputHint = document.getElementById('inputHint');
     const labels = document.querySelectorAll('.res-label');
 
-    // 切換單位時更新介面提示
     unitSelect.addEventListener('change', function() {
-        if (this.value === 'tsun') {
+        if (this.value === 'fen') {
             inputHint.innerText = "(請輸入分)";
-            labels.forEach(l => l.innerText = l.innerText.replace('(cm)', '(台寸)'));
+            labels.forEach(l => l.innerText = l.innerText.replace('(cm)', '(分)'));
         } else {
             inputHint.innerText = "(請輸入公分)";
-            labels.forEach(l => l.innerText = l.innerText.replace('(台寸)', '(cm)'));
+            labels.forEach(l => l.innerText = l.innerText.replace('(分)', '(cm)'));
         }
     });
 
@@ -94,13 +93,12 @@
         const res = rawVals.map(v => {
             if (!v || v <= 0) return "--";
             let val = parseFloat(v);
-            if (unit === 'tsun') {
-                // 輸入是「分」，先轉成「台寸」 (10分 = 1寸)
-                let tsunVal = val / 10;
-                // 公式：(台寸 * 縮率) + 0.3寸(3分)
-                return (tsunVal * (1 - rate) + 0.3).toFixed(2);
+            if (unit === 'fen') {
+                // 台寸模式（全部以「分」計算）
+                // 公式：(輸入的分 * 縮率) + 3分縫份
+                return (val * (1 - rate) + 3).toFixed(1); 
             } else {
-                // 公分邏輯不變
+                // 公分模式
                 return (val * (1 - rate) + 0.9).toFixed(2);
             }
         });
@@ -115,27 +113,26 @@
             vals: rawVals, 
             res, 
             rate: (rate*100).toFixed(1),
-            unit: (unit === 'tsun' ? '分' : 'cm'),
-            displayUnit: (unit === 'tsun' ? '台寸' : 'cm'),
+            unit: (unit === 'fen' ? '分' : 'cm'),
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        let logs = JSON.parse(localStorage.getItem('wheelLogsV4') || '[]');
+        let logs = JSON.parse(localStorage.getItem('wheelLogsV5') || '[]');
         logs.unshift(log);
-        localStorage.setItem('wheelLogsV4', JSON.stringify(logs.slice(0,20)));
+        localStorage.setItem('wheelLogsV5', JSON.stringify(logs.slice(0,20)));
         render();
     }
 
     function del(id){
         if(confirm('確定刪除？')){
-            let logs = JSON.parse(localStorage.getItem('wheelLogsV4')).filter(l => l.id !== id);
-            localStorage.setItem('wheelLogsV4', JSON.stringify(logs));
+            let logs = JSON.parse(localStorage.getItem('wheelLogsV5')).filter(l => l.id !== id);
+            localStorage.setItem('wheelLogsV5', JSON.stringify(logs));
             render();
         }
     }
 
     function render(){
-        const logs = JSON.parse(localStorage.getItem('wheelLogsV4') || '[]');
+        const logs = JSON.parse(localStorage.getItem('wheelLogsV5') || '[]');
         const list = document.getElementById('logList');
         if(logs.length === 0) {
             list.innerHTML = '<p style="text-align:center;color:#ccc">尚無紀錄</p>';
@@ -144,9 +141,9 @@
         list.innerHTML = logs.map(l => `
             <div class="history-item">
                 <div style="font-size:0.85rem">
-                    <b>${l.car}</b> <span class="unit-tag">${l.unit}入/${l.displayUnit}出</span><br>
-                    量：${l.vals[0]}|${l.vals[1]}|${l.vals[2]} (${l.unit})<br>
-                    <span style="color:var(--accent);font-weight:bold">裁：${l.res[0]}|${l.res[1]}|${l.res[2]} (${l.displayUnit})</span>
+                    <b>${l.car}</b> <span class="unit-tag">${l.unit}</span> (縮${l.rate}%)<br>
+                    量：${l.vals[0]}|${l.vals[1]}|${l.vals[2]} ${l.unit}<br>
+                    <span style="color:var(--accent);font-weight:bold">裁：${l.res[0]}|${l.res[1]}|${l.res[2]} ${l.unit}</span>
                 </div>
                 <button class="btn-delete" onclick="del(${l.id})">刪除</button>
             </div>
