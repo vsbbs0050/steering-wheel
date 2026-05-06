@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>方向盤皮革計算器 v3</title>
+    <title>方向盤皮革計算器 v4</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f8f9fa; --danger: #e74c3c; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--primary); }
@@ -12,7 +12,7 @@
         .input-row { display: flex; gap: 10px; margin-bottom: 12px; }
         .input-group { flex: 1; }
         label { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: bold; color: #666; }
-        input, select { width: 100%; padding: 12px 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1.1rem; background: #fff; appearance: none; -webkit-appearance: none; }
+        input, select { width: 100%; padding: 12px 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1.1rem; background: #fff; -webkit-appearance: none; }
         .result-container { display: flex; gap: 8px; margin: 15px 0; }
         .result-box { flex: 1; background: #fff3e0; padding: 10px 5px; border-radius: 8px; text-align: center; border: 1px solid #ffe0b2; }
         .res-label { font-size: 0.7rem; color: #8d6e63; margin-bottom: 3px; }
@@ -27,30 +27,30 @@
     <div class="card">
         <h2>設定與單位</h2>
         <div class="input-row">
-            <div class="input-group" style="flex: 1.5;"><label>車型</label><input type="text" id="carModel" placeholder="RAV4"></div>
+            <div class="input-group" style="flex: 1.5;"><label>車型</label><input type="text" id="carModel"></div>
             <div class="input-group"><label>縮率%</label><input type="number" id="stretchRate" value="8.0" step="0.1"></div>
             <div class="input-group">
                 <label>單位</label>
                 <select id="unitSelect">
+                    <option value="tsun">台寸 (輸入分)</option>
                     <option value="cm">公分 (cm)</option>
-                    <option value="tsun">台寸</option>
                 </select>
             </div>
         </div>
     </div>
 
     <div class="card">
-        <h2>測量長度</h2>
+        <h2>測量長度 <span id="inputHint" style="font-size:0.75rem; color:var(--accent); font-weight:normal;">(請輸入分)</span></h2>
         <div class="input-row">
-            <div class="input-group"><label>上側</label><input type="number" id="topW" step="0.1"></div>
-            <div class="input-group"><label>左右</label><input type="number" id="sideW" step="0.1"></div>
-            <div class="input-group"><label>下側</label><input type="number" id="bottomW" step="0.1"></div>
+            <div class="input-group"><label>上側</label><input type="number" id="topW" step="1"></div>
+            <div class="input-group"><label>左右</label><input type="number" id="sideW" step="1"></div>
+            <div class="input-group"><label>下側</label><input type="number" id="bottomW" step="1"></div>
         </div>
         <button onclick="calculateAll()">一鍵計算並儲存</button>
         <div class="result-container">
-            <div class="result-box"><div class="res-label">上側裁切</div><div class="res-val" id="rT">--</div></div>
-            <div class="result-box"><div class="res-label">左右裁切</div><div class="res-val" id="rS">--</div></div>
-            <div class="result-box"><div class="res-label">下側裁切</div><div class="res-val" id="rB">--</div></div>
+            <div class="result-box"><div class="res-label">上側 (台寸)</div><div class="res-val" id="rT">--</div></div>
+            <div class="result-box"><div class="res-label">左右 (台寸)</div><div class="res-val" id="rS">--</div></div>
+            <div class="result-box"><div class="res-label">下側 (台寸)</div><div class="res-val" id="rB">--</div></div>
         </div>
     </div>
 
@@ -60,26 +60,50 @@
     </div>
 
 <script>
+    const unitSelect = document.getElementById('unitSelect');
+    const inputHint = document.getElementById('inputHint');
+    const labels = document.querySelectorAll('.res-label');
+
+    // 切換單位時更新介面提示
+    unitSelect.addEventListener('change', function() {
+        if (this.value === 'tsun') {
+            inputHint.innerText = "(請輸入分)";
+            labels.forEach(l => l.innerText = l.innerText.replace('(cm)', '(台寸)'));
+        } else {
+            inputHint.innerText = "(請輸入公分)";
+            labels.forEach(l => l.innerText = l.innerText.replace('(台寸)', '(cm)'));
+        }
+    });
+
     function calculateAll(){
         const unit = document.getElementById('unitSelect').value;
         const rate = parseFloat(document.getElementById('stretchRate').value)/100;
         const car = document.getElementById('carModel').value || "未命名";
         
-        // 根據單位決定縫份：公分=0.9, 台寸=0.3 (三分)
-        const seam = (unit === 'cm') ? 0.9 : 0.3;
-        
-        const vals = [
+        const rawVals = [
             document.getElementById('topW').value, 
             document.getElementById('sideW').value, 
             document.getElementById('bottomW').value
         ];
 
-        if (!vals[0] && !vals[1] && !vals[2]) {
+        if (!rawVals[0] && !rawVals[1] && !rawVals[2]) {
             alert('請輸入數值');
             return;
         }
 
-        const res = vals.map(v => v > 0 ? (v * (1 - rate) + seam).toFixed(2) : "--");
+        const res = rawVals.map(v => {
+            if (!v || v <= 0) return "--";
+            let val = parseFloat(v);
+            if (unit === 'tsun') {
+                // 輸入是「分」，先轉成「台寸」 (10分 = 1寸)
+                let tsunVal = val / 10;
+                // 公式：(台寸 * 縮率) + 0.3寸(3分)
+                return (tsunVal * (1 - rate) + 0.3).toFixed(2);
+            } else {
+                // 公分邏輯不變
+                return (val * (1 - rate) + 0.9).toFixed(2);
+            }
+        });
 
         document.getElementById('rT').innerText = res[0];
         document.getElementById('rS').innerText = res[1];
@@ -88,29 +112,30 @@
         const log = { 
             id: Date.now(), 
             car, 
-            vals, 
+            vals: rawVals, 
             res, 
             rate: (rate*100).toFixed(1),
-            unit: (unit === 'cm' ? 'cm' : '台寸'),
+            unit: (unit === 'tsun' ? '分' : 'cm'),
+            displayUnit: (unit === 'tsun' ? '台寸' : 'cm'),
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        let logs = JSON.parse(localStorage.getItem('wheelLogsV3') || '[]');
+        let logs = JSON.parse(localStorage.getItem('wheelLogsV4') || '[]');
         logs.unshift(log);
-        localStorage.setItem('wheelLogsV3', JSON.stringify(logs.slice(0,20)));
+        localStorage.setItem('wheelLogsV4', JSON.stringify(logs.slice(0,20)));
         render();
     }
 
     function del(id){
         if(confirm('確定刪除？')){
-            let logs = JSON.parse(localStorage.getItem('wheelLogsV3')).filter(l => l.id !== id);
-            localStorage.setItem('wheelLogsV3', JSON.stringify(logs));
+            let logs = JSON.parse(localStorage.getItem('wheelLogsV4')).filter(l => l.id !== id);
+            localStorage.setItem('wheelLogsV4', JSON.stringify(logs));
             render();
         }
     }
 
     function render(){
-        const logs = JSON.parse(localStorage.getItem('wheelLogsV3') || '[]');
+        const logs = JSON.parse(localStorage.getItem('wheelLogsV4') || '[]');
         const list = document.getElementById('logList');
         if(logs.length === 0) {
             list.innerHTML = '<p style="text-align:center;color:#ccc">尚無紀錄</p>';
@@ -119,9 +144,9 @@
         list.innerHTML = logs.map(l => `
             <div class="history-item">
                 <div style="font-size:0.85rem">
-                    <b>${l.car}</b> <span class="unit-tag">${l.unit}</span> (縮${l.rate}%)<br>
-                    量：${l.vals[0]}|${l.vals[1]}|${l.vals[2]}<br>
-                    <span style="color:var(--accent);font-weight:bold">裁：${l.res[0]}|${l.res[1]}|${l.res[2]}</span>
+                    <b>${l.car}</b> <span class="unit-tag">${l.unit}入/${l.displayUnit}出</span><br>
+                    量：${l.vals[0]}|${l.vals[1]}|${l.vals[2]} (${l.unit})<br>
+                    <span style="color:var(--accent);font-weight:bold">裁：${l.res[0]}|${l.res[1]}|${l.res[2]} (${l.displayUnit})</span>
                 </div>
                 <button class="btn-delete" onclick="del(${l.id})">刪除</button>
             </div>
