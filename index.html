@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>方向盤皮革計算器 v6</title>
+    <title>方向盤皮革計算器 v7</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f8f9fa; --danger: #e74c3c; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--primary); }
@@ -20,6 +20,7 @@
         button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
         .history-item { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
         .btn-delete { background: var(--danger); color: white; border: none; padding: 8px 12px; font-size: 0.8rem; border-radius: 6px; width: auto; }
+        .btn-clear-all { background: none; color: #999; border: 1px dashed #ccc; margin-top: 10px; padding: 10px; font-size: 0.85rem; }
         .unit-tag { font-size: 0.7rem; padding: 2px 6px; background: #eee; border-radius: 4px; color: #666; margin-left: 5px; }
     </style>
 </head>
@@ -57,6 +58,7 @@
     <div class="card">
         <h2>歷史紀錄</h2>
         <div id="logList"></div>
+        <button id="clearBtn" class="btn-clear-all" onclick="clearAllLogs()" style="display:none; width: 100%;">清空所有紀錄</button>
     </div>
 
 <script>
@@ -78,8 +80,6 @@
         const unit = document.getElementById('unitSelect').value;
         const rate = parseFloat(document.getElementById('stretchRate').value)/100;
         const car = document.getElementById('carModel').value || "未命名";
-        
-        // 雙倍縫份：公分=1.8 (0.9*2), 台寸模式=6分 (3分*2)
         const seam = (unit === 'fen') ? 6 : 1.8;
         
         const rawVals = [
@@ -97,10 +97,8 @@
             if (!v || v <= 0) return "--";
             let val = parseFloat(v);
             if (unit === 'fen') {
-                // 公式：(輸入的分 * (1-縮率)) + 6分縫份
                 return (val * (1 - rate) + seam).toFixed(1); 
             } else {
-                // 公式：(輸入的公分 * (1-縮率)) + 1.8cm縫份
                 return (val * (1 - rate) + seam).toFixed(2);
             }
         });
@@ -119,27 +117,39 @@
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        let logs = JSON.parse(localStorage.getItem('wheelLogsV6') || '[]');
+        let logs = JSON.parse(localStorage.getItem('wheelLogsV7') || '[]');
         logs.unshift(log);
-        localStorage.setItem('wheelLogsV6', JSON.stringify(logs.slice(0,20)));
+        localStorage.setItem('wheelLogsV7', JSON.stringify(logs.slice(0,30)));
         render();
     }
 
     function del(id){
-        if(confirm('確定刪除？')){
-            let logs = JSON.parse(localStorage.getItem('wheelLogsV6')).filter(l => l.id !== id);
-            localStorage.setItem('wheelLogsV6', JSON.stringify(logs));
+        if(confirm('確定刪除此筆？')){
+            let logs = JSON.parse(localStorage.getItem('wheelLogsV7')).filter(l => l.id !== id);
+            localStorage.setItem('wheelLogsV7', JSON.stringify(logs));
+            render();
+        }
+    }
+
+    function clearAllLogs() {
+        if(confirm('警告：確定要清空「所有」歷史紀錄嗎？這無法還原。')){
+            localStorage.removeItem('wheelLogsV7');
             render();
         }
     }
 
     function render(){
-        const logs = JSON.parse(localStorage.getItem('wheelLogsV6') || '[]');
+        const logs = JSON.parse(localStorage.getItem('wheelLogsV7') || '[]');
         const list = document.getElementById('logList');
+        const clearBtn = document.getElementById('clearBtn');
+        
         if(logs.length === 0) {
             list.innerHTML = '<p style="text-align:center;color:#ccc">尚無紀錄</p>';
+            clearBtn.style.display = 'none';
             return;
         }
+
+        clearBtn.style.display = 'block';
         list.innerHTML = logs.map(l => `
             <div class="history-item">
                 <div style="font-size:0.85rem">
