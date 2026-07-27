@@ -69,8 +69,8 @@
 <script>
     // 固定雙邊縫份 1.8 cm (6分)
     const SEAM_ALLOWANCE = 1.8;
-    // 中央環可見淨寬 0.6 cm (8分裁切 2.4cm - 雙邊縫份 1.8cm)
-    const RING_NET_WIDTH = 0.6;
+    // 多剪開一個接縫增加的縫份(1.8cm) - 中央環貢獻淨長(0.6cm) = 淨增加 1.2cm
+    const RING_EXTRA_LENGTH = 1.2;
 
     function calculateAll(){
         const rate = parseFloat(document.getElementById('stretchRate').value)/100;
@@ -93,13 +93,15 @@
             if (!v || v <= 0) return "--";
             let val = parseFloat(v);
             
-            // 如果是上側 (index 0) 且勾選了中央環，先扣除中央環可見淨寬 0.6cm
+            // 基本裁切長度算式：實測 * (1 - 縮率) + 原本雙邊縫份 1.8cm
+            let baseCut = val * (1 - rate) + SEAM_ALLOWANCE;
+
+            // 若為上側 (index 0) 且有中央環，需補上拼接接縫差額 (+1.2cm)
             if (index === 0 && hasRing) {
-                val = val - RING_NET_WIDTH;
+                baseCut += RING_EXTRA_LENGTH;
             }
             
-            // 公式：實測長度 * (1 - 縮率) + 縫份 1.8cm
-            return (val * (1 - rate) + SEAM_ALLOWANCE).toFixed(2);
+            return baseCut.toFixed(2);
         });
 
         // 顯示結果
