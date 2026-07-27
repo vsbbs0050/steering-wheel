@@ -9,19 +9,27 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--primary); }
         .card { background: white; padding: 18px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
         h2 { margin: 0 0 15px 0; font-size: 1.1rem; color: #555; border-left: 4px solid var(--accent); padding-left: 10px; }
-        .input-row { display: flex; gap: 10px; margin-bottom: 12px; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
         .input-group { flex: 1; }
         label { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: bold; color: #666; }
-        input { width: 100%; padding: 12px 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1.1rem; background: #fff; -webkit-appearance: none; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 12px 8px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1.1rem; background: #fff; -webkit-appearance: none; }
+        
+        /* 核取方塊自訂樣式 */
+        .checkbox-group { display: flex; align-items: center; cursor: pointer; user-select: none; font-size: 0.9rem; font-weight: bold; color: #444; margin-top: 15px; }
+        .checkbox-group input { width: 18px; height: 18px; margin-right: 8px; cursor: pointer; }
+
         .result-container { display: flex; gap: 8px; margin: 15px 0; }
         .result-box { flex: 1; background: #fff3e0; padding: 10px 5px; border-radius: 8px; text-align: center; border: 1px solid #ffe0b2; }
         .res-label { font-size: 0.7rem; color: #8d6e63; margin-bottom: 3px; }
         .res-val { font-size: 1.25rem; font-weight: bold; color: var(--accent); }
+        .res-val.ring-active { color: var(--danger) !important; } /* 打勾時顯示紅色 */
+
         button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
         .history-item { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
         .btn-delete { background: var(--danger); color: white; border: none; padding: 8px 12px; font-size: 0.8rem; border-radius: 6px; width: auto; }
         .btn-clear-all { background: none; color: #999; border: 1px dashed #ccc; margin-top: 10px; padding: 10px; font-size: 0.85rem; }
         .unit-tag { font-size: 0.7rem; padding: 2px 6px; background: #eee; border-radius: 4px; color: #666; margin-left: 5px; }
+        .ring-tag { font-size: 0.7rem; padding: 2px 6px; background: #fde8e8; border-radius: 4px; color: var(--danger); margin-left: 3px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -31,6 +39,10 @@
             <div class="input-group" style="flex: 2;"><label>車型</label><input type="text" id="carModel"></div>
             <div class="input-group" style="flex: 1;"><label>縮率%</label><input type="number" id="stretchRate" value="11.0" step="0.1"></div>
         </div>
+        <label class="checkbox-group">
+            <input type="checkbox" id="hasCenterRing">
+            加裝中央環 (裁 8分/2.4cm)
+        </label>
     </div>
 
     <div class="card">
@@ -55,13 +67,17 @@
     </div>
 
 <script>
-    // 固定縫份 1.8 cm (雙邊共 6 分)
+    // 固定雙邊縫份 1.8 cm (6分)
     const SEAM_ALLOWANCE = 1.8;
+    // 中央環可見淨寬 0.6 cm (8分裁切 2.4cm - 雙邊縫份 1.8cm)
+    const RING_NET_WIDTH = 0.6;
 
     function calculateAll(){
         const rate = parseFloat(document.getElementById('stretchRate').value)/100;
         const car = document.getElementById('carModel').value || "未命名";
-        
+        const hasRing = document.getElementById('hasCenterRing').checked;
+        const rTElement = document.getElementById('rT');
+
         const rawVals = [
             document.getElementById('topW').value, 
             document.getElementById('sideW').value, 
@@ -73,16 +89,30 @@
             return;
         }
 
-        const res = rawVals.map(v => {
+        const res = rawVals.map((v, index) => {
             if (!v || v <= 0) return "--";
             let val = parseFloat(v);
+            
+            // 如果是上側 (index 0) 且勾選了中央環，先扣除中央環可見淨寬 0.6cm
+            if (index === 0 && hasRing) {
+                val = val - RING_NET_WIDTH;
+            }
+            
             // 公式：實測長度 * (1 - 縮率) + 縫份 1.8cm
             return (val * (1 - rate) + SEAM_ALLOWANCE).toFixed(2);
         });
 
-        document.getElementById('rT').innerText = res[0];
+        // 顯示結果
+        rTElement.innerText = res[0];
         document.getElementById('rS').innerText = res[1];
         document.getElementById('rB').innerText = res[2];
+
+        // 若勾選中央環，上側數字變紅色，否則恢復原色
+        if (hasRing && res[0] !== "--") {
+            rTElement.classList.add('ring-active');
+        } else {
+            rTElement.classList.remove('ring-active');
+        }
 
         const log = { 
             id: Date.now(), 
@@ -90,6 +120,7 @@
             vals: rawVals, 
             res, 
             rate: (rate*100).toFixed(1),
+            hasRing,
             unit: 'cm',
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
@@ -130,9 +161,14 @@
         list.innerHTML = logs.map(l => `
             <div class="history-item">
                 <div style="font-size:0.85rem">
-                    <b>${l.car}</b> <span class="unit-tag">${l.unit}</span> (縮${l.rate}%)<br>
+                    <b>${l.car}</b> 
+                    <span class="unit-tag">${l.unit}</span>
+                    ${l.hasRing ? '<span class="ring-tag">+中央環(2.4cm)</span>' : ''}
+                    (縮${l.rate}%)<br>
                     量：${l.vals[0] || '--'}|${l.vals[1] || '--'}|${l.vals[2] || '--'} cm<br>
-                    <span style="color:var(--accent);font-weight:bold">裁：${l.res[0]}|${l.res[1]}|${l.res[2]} cm</span>
+                    <span style="color:var(--accent);font-weight:bold">
+                        裁：<span style="${l.hasRing ? 'color:var(--danger)' : ''}">${l.res[0]}</span>|${l.res[1]}|${l.res[2]} cm
+                    </span>
                 </div>
                 <button class="btn-delete" onclick="del(${l.id})">刪除</button>
             </div>
